@@ -13,7 +13,7 @@ export default function HomeScreen() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>{greeting}, {user?.name.split(' ')[0]} 👋</Text>
+        <Text style={styles.greeting}>{greeting}, {user?.name?.split(' ')[0] ?? 'there'} 👋</Text>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'U'}</Text>
         </View>
