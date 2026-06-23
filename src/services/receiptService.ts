@@ -1,4 +1,4 @@
-import { apiFetch } from './apiClient';
+import { apiFetch } from "./apiClient";
 
 export type DashboardData = {
   totalSpent: number;
@@ -12,12 +12,13 @@ export type DashboardData = {
 };
 
 export type Receipt = {
-  id: string;
+  id?: string;
+  _id: string;
   vendor: string;
   date: string;
   total: number;
   currency: string;
-  status: 'pending' | 'processed' | 'failed' | 'edited';
+  status: "pending" | "processed" | "failed" | "edited";
   imageUrl?: string;
   items?: ReceiptItem[];
 };
@@ -29,13 +30,17 @@ export type ReceiptItem = {
   price: number;
 };
 
-export async function getDashboard(year: number, month?: number): Promise<DashboardData> {
+export async function getDashboard(
+  year: number,
+  month?: number,
+): Promise<DashboardData> {
   const query = month ? `year=${year}&month=${month}` : `year=${year}`;
   return apiFetch(`/dashboard?${query}`);
 }
 
 export async function getReceipts(status?: string): Promise<Receipt[]> {
-  const query = status && status !== 'All' ? `?status=${status.toLowerCase()}` : '';
+  const query =
+    status && status !== "All" ? `?status=${status.toLowerCase()}` : "";
   return apiFetch(`/receipts${query}`);
 }
 
@@ -43,41 +48,80 @@ export async function getReceiptById(id: string): Promise<Receipt> {
   return apiFetch(`/receipts/${id}`);
 }
 
-export async function updateReceipt(id: string, payload: Partial<Receipt>): Promise<Receipt> {
+export async function updateReceipt(
+  id: string,
+  payload: Partial<Receipt>,
+): Promise<Receipt> {
   return apiFetch(`/receipts/${id}`, {
-    method: 'PATCH',
+    method: "PATCH",
     body: JSON.stringify(payload),
   });
 }
 
 export async function deleteReceipt(id: string): Promise<void> {
-  return apiFetch(`/receipts/${id}`, { method: 'DELETE' });
+  return apiFetch(`/receipts/${id}`, { method: "DELETE" });
 }
 
 export async function deleteAllReceipts(): Promise<void> {
-  return apiFetch('/receipts', { method: 'DELETE' });
+  return apiFetch("/receipts", { method: "DELETE" });
 }
 
 export async function reprocessReceipt(id: string): Promise<Receipt> {
-  return apiFetch(`/receipts/${id}/reprocess`, { method: 'POST' });
+  return apiFetch(`/receipts/${id}/reprocess`, { method: "POST" });
 }
 
-export async function createReceipt(imageUrl: string, imagePublicId: string): Promise<Receipt> {
-  return apiFetch('/receipts', {
-    method: 'POST',
+export async function createReceipt(
+  imageUrl: string,
+  imagePublicId: string,
+): Promise<Receipt> {
+  return apiFetch("/receipts", {
+    method: "POST",
     body: JSON.stringify({ imageUrl, imagePublicId }),
   });
 }
 
-export async function pollReceiptStatus(id: string, onDone: (r: Receipt) => void): Promise<void> {
+// export async function pollReceiptStatus(
+//   id: string,
+//   onDone: (r: Receipt) => void,
+// ): Promise<void> {
+//   const interval = setInterval(async () => {
+//     try {
+//       const receipt = await getReceiptById(id);
+//       if (receipt.status !== "pending") {
+//         clearInterval(interval);
+//         onDone(receipt);
+//       }
+//     } catch {
+//       clearInterval(interval);
+//     }
+//   }, 2000);
+// }
+
+export async function pollReceiptStatus(
+  id: string,
+  onDone: (r: Receipt) => void,
+): Promise<void> {
+  if (!id) {
+    console.error("pollReceiptStatus called without id");
+    return;
+  }
+
+  console.log("Polling receipt", id);
+
   const interval = setInterval(async () => {
     try {
       const receipt = await getReceiptById(id);
-      if (receipt.status !== 'pending') {
+
+      console.log("Receipt status:", receipt.status);
+
+      if (receipt.status !== "pending") {
         clearInterval(interval);
+
         onDone(receipt);
       }
-    } catch {
+    } catch (err) {
+      console.error("POLL ERROR", err);
+
       clearInterval(interval);
     }
   }, 2000);
