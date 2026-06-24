@@ -1,6 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { login as apiLogin, signup as apiSignup, logout as apiLogout, UserProfile } from '@/services/authService';
+import {
+  login as apiLogin,
+  logout as apiLogout,
+  signup as apiSignup,
+  UserProfile,
+} from "@/services/authService";
+import * as SecureStore from "expo-secure-store";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 export type User = UserProfile;
 
@@ -24,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function loadUser() {
       try {
-        const stored = await SecureStore.getItemAsync('user');
+        const stored = await SecureStore.getItemAsync("user");
         if (stored) setUser(JSON.parse(stored));
       } catch {
         // ignore parse errors
@@ -39,10 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       const { user } = await apiLogin(email, password);
-      await SecureStore.setItemAsync('user', JSON.stringify(user));
+      await SecureStore.setItemAsync("user", JSON.stringify(user));
       setUser(user);
     } catch (e: any) {
-      setError(e.message ?? 'Login failed. Please try again.');
+      setError(e.message ?? "Login failed. Please try again.");
       throw e;
     }
   };
@@ -51,22 +56,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       const { user } = await apiSignup(name, email, password);
-      await SecureStore.setItemAsync('user', JSON.stringify(user));
+
+      await SecureStore.setItemAsync("user", JSON.stringify(user));
       setUser(user);
     } catch (e: any) {
-      setError(e.message ?? 'Sign up failed. Please try again.');
+      setError(e.message ?? "Sign up failed. Please try again.");
       throw e;
     }
   };
 
   const logout = async () => {
     await apiLogout();
-    await SecureStore.deleteItemAsync('user');
+    await SecureStore.deleteItemAsync("user");
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, error, login, signup, logout }}>
+    <AuthContext.Provider
+      value={{ user, isLoading, error, login, signup, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -75,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

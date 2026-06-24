@@ -11,16 +11,34 @@ export type DashboardData = {
   recentReceipts: Receipt[];
 };
 
+// export type Receipt = {
+//   _id: string;
+//   id?: string;
+
+//   vendorName: string;
+//   date: string;
+//   totalAmount: number;
+//   currency: string;
+//   status: "pending" | "processed" | "failed" | "manually_edited";
+//   imageUrl?: string;
+//   items?: ReceiptItem[];
+// };
+
 export type Receipt = {
-  id?: string;
   _id: string;
-  vendor: string;
+  id?: string;
+  vendorName: string;
+  vendorAddress?: string;
+  purchaseDate?: string;
   date: string;
-  total: number;
+  totalAmount: number;
   currency: string;
-  status: "pending" | "processed" | "failed" | "edited";
   imageUrl?: string;
+  status: "pending" | "processed" | "failed" | "manually_edited";
+  ocrConfidence?: number;
   items?: ReceiptItem[];
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type ReceiptItem = {
@@ -44,8 +62,66 @@ export async function getReceipts(status?: string): Promise<Receipt[]> {
   return apiFetch(`/receipts${query}`);
 }
 
+// export async function getReceiptById(id: string): Promise<Receipt> {
+//   const data = await apiFetch(`/receipts/${id}`);
+
+//   return {
+//     _id: data._id,
+//     id: data._id,
+
+//     vendorName: data.vendorName ?? "",
+//     date: data.purchaseDate
+//       ? new Date(data.purchaseDate).toLocaleDateString()
+//       : "",
+
+//     totalAmount: data.totalAmount ?? 0,
+//     currency: data.currency ?? "USD",
+//     status: data.status,
+//     imageUrl: data.imageUrl,
+
+//     items:
+//       data.items?.map((item: any, index: number) => ({
+//         id: String(index),
+//         name: item.name,
+//         qty: item.quantity,
+//         price: item.totalPrice,
+//       })) || [],
+//   };
+// }
+
 export async function getReceiptById(id: string): Promise<Receipt> {
-  return apiFetch(`/receipts/${id}`);
+  const data = await apiFetch(`/receipts/${id}`);
+
+  console.log("RECEIPT DATA:", data);
+  console.log(JSON.stringify(data, null, 2));
+
+  return {
+    _id: data._id,
+
+    vendorName: data.vendorName || "",
+
+    purchaseDate: data.purchaseDate,
+
+    date: data.purchaseDate
+      ? new Date(data.purchaseDate).toLocaleDateString()
+      : "",
+
+    totalAmount: data.totalAmount || 0,
+
+    currency: data.currency || "USD",
+
+    status: data.status,
+
+    imageUrl: data.imageUrl,
+
+    items:
+      data.items?.map((item: any) => ({
+        id: item._id?.toString() ?? Math.random().toString(),
+        name: item.name,
+        qty: item.quantity,
+        price: item.totalPrice,
+      })) || [],
+  };
 }
 
 export async function updateReceipt(
@@ -80,23 +156,6 @@ export async function createReceipt(
   });
 }
 
-// export async function pollReceiptStatus(
-//   id: string,
-//   onDone: (r: Receipt) => void,
-// ): Promise<void> {
-//   const interval = setInterval(async () => {
-//     try {
-//       const receipt = await getReceiptById(id);
-//       if (receipt.status !== "pending") {
-//         clearInterval(interval);
-//         onDone(receipt);
-//       }
-//     } catch {
-//       clearInterval(interval);
-//     }
-//   }, 2000);
-// }
-
 export async function pollReceiptStatus(
   id: string,
   onDone: (r: Receipt) => void,
@@ -114,7 +173,11 @@ export async function pollReceiptStatus(
 
       console.log("Receipt status:", receipt.status);
 
-      if (receipt.status !== "pending") {
+      if (
+        receipt.status === "processed" ||
+        receipt.status === "failed" ||
+        receipt.status === "manually_edited"
+      ) {
         clearInterval(interval);
 
         onDone(receipt);

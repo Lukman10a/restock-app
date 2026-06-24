@@ -26,7 +26,8 @@ export default function ScanScreen() {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [flash, setFlash] = useState(false);
   const router = useRouter();
-  const cameraRef = useRef<CameraView>(null);
+  // const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<any>(null);
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -67,7 +68,8 @@ export default function ScanScreen() {
       setProcessingMessage("Reading your receipt...");
 
       pollReceiptStatus(receiptId!, (done) => {
-        router.replace(`/receipt/${done._id || done.id}`);
+        setIsProcessing(false);
+        router.push(`/receipt/${done._id || done.id}`);
       });
     } catch (err: unknown) {
       const message =
@@ -99,9 +101,13 @@ export default function ScanScreen() {
     try {
       console.log("Taking picture...");
 
+      // const photo = await cameraRef.current.takePictureAsync({
+      //   quality: 0.8,
+      //   skipProcessing: true,
+      // });
+
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        skipProcessing: true,
+        quality: 0.7,
       });
 
       console.log("PHOTO:", photo);
@@ -174,12 +180,23 @@ export default function ScanScreen() {
   return (
     <View style={styles.container}>
       {/* Live camera feed */}
-      <CameraView
+      {/* <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
         enableTorch={flash}
         ref={cameraRef}
         onCameraReady={() => setIsCameraReady(true)}
+      /> */}
+
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        flash={flash ? "on" : "off"}
+        onCameraReady={() => {
+          console.log("Camera ready");
+          setIsCameraReady(true);
+        }}
       />
 
       {/* Overlay UI on top of camera */}
