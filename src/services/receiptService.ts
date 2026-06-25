@@ -11,19 +11,6 @@ export type DashboardData = {
   recentReceipts: Receipt[];
 };
 
-// export type Receipt = {
-//   _id: string;
-//   id?: string;
-
-//   vendorName: string;
-//   date: string;
-//   totalAmount: number;
-//   currency: string;
-//   status: "pending" | "processed" | "failed" | "manually_edited";
-//   imageUrl?: string;
-//   items?: ReceiptItem[];
-// };
-
 export type Receipt = {
   _id: string;
   id?: string;
@@ -53,7 +40,34 @@ export async function getDashboard(
   month?: number,
 ): Promise<DashboardData> {
   const query = month ? `year=${year}&month=${month}` : `year=${year}`;
-  return apiFetch(`/dashboard?${query}`);
+  const data = await apiFetch(`/dashboard?${query}`);
+
+  // console.log("RAW DASHBOARD:", data);
+
+  return {
+    totalSpent: data.overview?.totalSpend ?? 0,
+    receiptCount: data.overview?.receiptCount ?? 0,
+    averagePerReceipt: data.overview?.avgPerReceipt ?? 0,
+    itemsTracked: data.overview?.totalItems ?? 0,
+
+    // ⚠️ you don’t have weeklySpend → fake or compute
+    weeklySpend: 0,
+
+    monthlyBreakdown: data.monthlyBreakdown?.months ?? [],
+
+    topVendors:
+      data.topVendors?.map((v: any) => ({
+        name: v.vendorName,
+        totalSpend: v.totalSpend,
+        visits: v.visitCount,
+      })) ?? [],
+
+    recentReceipts:
+      data.recentReceipts?.map((r: any) => ({
+        ...r,
+        date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
+      })) ?? [],
+  };
 }
 
 export async function getReceipts(status?: string): Promise<Receipt[]> {
@@ -61,33 +75,6 @@ export async function getReceipts(status?: string): Promise<Receipt[]> {
     status && status !== "All" ? `?status=${status.toLowerCase()}` : "";
   return apiFetch(`/receipts${query}`);
 }
-
-// export async function getReceiptById(id: string): Promise<Receipt> {
-//   const data = await apiFetch(`/receipts/${id}`);
-
-//   return {
-//     _id: data._id,
-//     id: data._id,
-
-//     vendorName: data.vendorName ?? "",
-//     date: data.purchaseDate
-//       ? new Date(data.purchaseDate).toLocaleDateString()
-//       : "",
-
-//     totalAmount: data.totalAmount ?? 0,
-//     currency: data.currency ?? "USD",
-//     status: data.status,
-//     imageUrl: data.imageUrl,
-
-//     items:
-//       data.items?.map((item: any, index: number) => ({
-//         id: String(index),
-//         name: item.name,
-//         qty: item.quantity,
-//         price: item.totalPrice,
-//       })) || [],
-//   };
-// }
 
 export async function getReceiptById(id: string): Promise<Receipt> {
   const data = await apiFetch(`/receipts/${id}`);

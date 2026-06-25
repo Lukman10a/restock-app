@@ -1,6 +1,8 @@
 import { Colors, Fonts, Layout, Spacing } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
+import { DashboardData, getDashboard } from "@/services/receiptService";
 import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -9,8 +11,51 @@ import {
   View,
 } from "react-native";
 
+type MonthItem = {
+  month: number;
+  monthName: string;
+  totalSpend: number;
+  receiptCount: number;
+};
+
 export default function HomeScreen() {
   const { user } = useAuth();
+
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // const breakdown: MonthItem[] = dashboard?.monthlyBreakdown ?? [];
+
+  const breakdown: MonthItem[] = (dashboard?.monthlyBreakdown ?? []).map(
+    (item: any, index: number) => ({
+      month: index + 1,
+      monthName: item.month,
+      totalSpend: Number(item.totalSpend ?? item.amount ?? 0),
+      receiptCount: item.receiptCount ?? 0,
+    }),
+  );
+
+  const numericAmounts = breakdown.map(
+    (m: MonthItem) => Number(m.totalSpend) || 0,
+  );
+
+  const max = numericAmounts.length ? Math.max(...numericAmounts) : 1;
+
+  useEffect(() => {
+    async function loadDashboard() {
+      try {
+        const now = new Date();
+        const data = await getDashboard(now.getFullYear(), now.getMonth() + 1);
+        setDashboard(data);
+      } catch (err) {
+        console.error("Failed to load dashboard", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboard();
+  }, []);
 
   const hour = new Date().getHours();
   const greeting =
@@ -22,11 +67,6 @@ export default function HomeScreen() {
         <Text style={styles.greeting}>
           {greeting}, {user?.fullName?.split(" ")[0] ?? "there"} 👋
         </Text>
-        {/* <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {user?.fullName?.charAt(0) || "U"}
-        </Text>
-      </View> */}
       </View>
 
       {/* total spent */}
@@ -37,50 +77,83 @@ export default function HomeScreen() {
         style={styles.heroCard}
       >
         <Text style={styles.heroLabel}>Total Spent This Month</Text>
-        <Text style={styles.heroAmount}>$176.60</Text>
-        <Text style={styles.heroSubtext}>12 receipts · Jun 2026</Text>
+        <Text style={styles.heroAmount}>
+          {dashboard?.totalSpent
+            ? `$${dashboard.totalSpent.toFixed(2)}`
+            : "$0.00"}
+        </Text>
+        <Text style={styles.heroSubtext}>
+          {dashboard?.receiptCount ?? 0} receipts ·{" "}
+          {new Date().toLocaleDateString("en-US", {
+            month: "long",
+            year: "numeric",
+          })}
+        </Text>
       </LinearGradient>
 
-      {/* spending overview */}
+      {/* stats */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Avg/Receipt</Text>
-          <Text style={styles.statValue}>$44.15</Text>
+          <Text style={styles.statValue}>
+            {dashboard?.averagePerReceipt
+              ? `$${dashboard.averagePerReceipt.toFixed(2)}`
+              : "$0.00"}
+          </Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Items Tracked</Text>
-          <Text style={styles.statValue}>32</Text>
+          <Text style={styles.statValue}>{dashboard?.itemsTracked ?? 0}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>This Week</Text>
-          <Text style={styles.statValue}>$67.20</Text>
+          <Text style={styles.statValue}>
+            {dashboard?.weeklySpend
+              ? `$${dashboard.weeklySpend.toFixed(2)}`
+              : "$0.00"}
+          </Text>
         </View>
       </View>
 
+      {/* spending overview */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Spending Overview</Text>
-        <View style={styles.chartContainer}>
-          {["Jan", "Feb", "Mar", "Apr", "May", "Jun"].map((month, index) => {
-            const isCurrent = month === "Jun";
-            const height = isCurrent ? 120 : 40 + Math.random() * 60;
-            return (
-              <View key={month} style={styles.barColumn}>
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      height,
-                      backgroundColor: isCurrent
-                        ? Colors.accent
-                        : Colors.border,
-                    },
-                  ]}
-                />
-                <Text style={styles.barLabel}>{month}</Text>
-              </View>
-            );
-          })}
-        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingRight: 16 }}
+        >
+          <View style={styles.chartContainer}>
+            {breakdown.map((item: MonthItem) => {
+              const safeAmount = Number(item.totalSpend) || 0;
+
+              const height =
+                max > 0 ? Math.max((safeAmount / max) * 120, 5) : 5;
+
+              return (
+                <View key={item.month} style={styles.barColumn}>
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height,
+                        backgroundColor:
+                          item.monthName ===
+                          new Date().toLocaleString("default", {
+                            month: "short",
+                          })
+                            ? Colors.accent
+                            : Colors.border,
+                      },
+                    ]}
+                  />
+                  <Text style={styles.barLabel}>{item.monthName}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
       </View>
 
       {/* Top Vendors */}
@@ -91,14 +164,18 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.vendorsScroll}
         >
-          {["Luxa", "Target", "Starbucks"].map((vendor) => (
-            <View key={vendor} style={styles.vendorChip}>
+          {dashboard?.topVendors.map((vendor) => (
+            <View key={vendor.name} style={styles.vendorChip}>
               <View style={styles.vendorIcon}>
-                <Text style={styles.vendorIconText}>{vendor.charAt(0)}</Text>
+                <Text style={styles.vendorIconText}>
+                  {vendor.name.charAt(0)}
+                </Text>
               </View>
               <View>
-                <Text style={styles.vendorName}>{vendor}</Text>
-                <Text style={styles.vendorSub}>$120.50 · 4 visits</Text>
+                <Text style={styles.vendorName}>{vendor.name}</Text>
+                <Text style={styles.vendorSub}>
+                  ${vendor.totalSpend.toFixed(2)} · {vendor.visits} visits
+                </Text>
               </View>
             </View>
           ))}
@@ -112,21 +189,27 @@ export default function HomeScreen() {
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>
-        {[1, 2, 3].map((item) => (
-          <View key={item} style={styles.receiptItem}>
-            <View style={styles.receiptIcon} />
-            <View style={styles.receiptDetails}>
-              <Text style={styles.receiptVendor}>Whole Foods</Text>
-              <Text style={styles.receiptDate}>Jun {item + 10}, 2026</Text>
-            </View>
-            <View style={styles.receiptRight}>
-              <Text style={styles.receiptAmount}>$45.00</Text>
-              <View style={styles.badgeSuccess}>
-                <Text style={styles.badgeTextSuccess}>Processed</Text>
+        {dashboard?.recentReceipts.map((receipt) => {
+          return (
+            <View key={receipt._id} style={styles.receiptItem}>
+              <View style={styles.receiptIcon} />
+              <View style={styles.receiptDetails}>
+                <Text style={styles.receiptVendor}>{receipt.vendorName}</Text>
+                <Text style={styles.receiptDate}>{receipt.date}</Text>
+              </View>
+              <View style={styles.receiptRight}>
+                <Text style={styles.receiptAmount}>
+                  {/* ${receipt?.totalAmount?.toFixed(2)}$ */}$
+                  {Number(receipt.totalAmount ?? 0).toFixed(2)}
+                  {/* {Number(receipt.totalAmount ?? 0).toFixed(2)} */}
+                </Text>
+                <View style={styles.badgeSuccess}>
+                  <Text style={styles.badgeTextSuccess}>{receipt.status}</Text>
+                </View>
               </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
     </ScrollView>
   );
@@ -233,7 +316,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.base,
   },
   barColumn: { alignItems: "center", width: 32 },
-  bar: { width: 24, borderRadius: 4, marginBottom: Spacing.half },
+  bar: {
+    width: 24,
+    borderRadius: 4,
+    marginBottom: Spacing.half,
+  },
   barLabel: {
     fontFamily: Fonts.medium,
     fontSize: 12,
